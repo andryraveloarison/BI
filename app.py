@@ -31,30 +31,65 @@ st.subheader('Feed me with your Excel file')
 uploaded_file = st.file_uploader('Choose a XLSX file', type='xlsx')
 if uploaded_file:
     st.markdown('---')
-    df = pd.read_excel(uploaded_file, engine='openpyxl')
-    st.dataframe(df)
-    groupby_column = st.selectbox(
-        'What would you like to analyse?',
-        ('Ship Mode', 'Segment', 'Category', 'Sub-Category'),
-    )
+   
 
-    # -- GROUP DATAFRAME
-    output_columns = ['Sales', 'Profit']
-    df_grouped = df.groupby(by=[groupby_column], as_index=False)[output_columns].sum()
 
-    # -- PLOT DATAFRAME
-    fig = px.bar(
-        df_grouped,
-        x=groupby_column,
-        y='Sales',
-        color='Profit',
-        color_continuous_scale=['red', 'yellow', 'green'],
-        template='plotly_white',
-        title=f'<b>Sales & Profit by {groupby_column}</b>'
-    )
-    st.plotly_chart(fig)
+    sheet_name = 'DATA'
+
+    df = pd.read_excel(uploaded_file,
+                    sheet_name=sheet_name,
+                    usecols='B:D',
+                    header=3)
+
+    df_participants = pd.read_excel(uploaded_file,
+                                    sheet_name= sheet_name,
+                                    usecols='F:G',
+                                    header=3)
+    df_participants.dropna(inplace=True)
+
+        
+    # --- STREAMLIT SELECTION
+    department = df['Department'].unique().tolist()
+    ages = df['Age'].unique().tolist()
+
+    age_selection = st.slider('Age:',
+                            min_value= min(ages),
+                            max_value= max(ages),
+                            value=(min(ages),max(ages)))
+
+    department_selection = st.multiselect('Department:',
+                                        department,
+                                        default=department)
+
+    # --- FILTER DATAFRAME BASED ON SELECTION
+    mask = (df['Age'].between(*age_selection)) & (df['Department'].isin(department_selection))
+    number_of_result = df[mask].shape[0]
+    st.markdown(f'*Available Results: {number_of_result}*')
+
+
+    # --- GROUP DATAFRAME AFTER SELECTION
+    df_grouped = df[mask].groupby(by=['Rating']).count()[['Age']]
+    df_grouped = df_grouped.rename(columns={'Age': 'Votes'})
+    df_grouped = df_grouped.reset_index()
+
+    # --- PLOT BAR CHART
+    bar_chart = px.bar(df_grouped,
+                    x='Rating',
+                    y='Votes',
+                    text='Votes',
+                    color_discrete_sequence = ['#F63366']*len(df_grouped),
+                    template= 'plotly_white')
+    st.plotly_chart(bar_chart)
+
+    # --- PLOT PIE CHART
+    pie_chart = px.pie(df_participants,
+                    title='Total No. of Participants',
+                    values='Participants',
+                    names='Departments')
+
+    st.plotly_chart(pie_chart)
 
     # -- DOWNLOAD SECTION
     st.subheader('Downloads:')
     generate_excel_download_link(df_grouped)
-    generate_html_download_link(fig)
+    generate_html_download_link(pie_chart)
