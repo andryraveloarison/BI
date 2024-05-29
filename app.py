@@ -31,6 +31,7 @@ st.title('BI avec Streamlit 📈')
 st.subheader('By Andry & Fehizoro')
 
 uploaded_file = st.file_uploader('Choisir un fichier xlsx', type='xlsx')
+
 if uploaded_file:
     st.markdown('---')
    
@@ -51,12 +52,21 @@ if uploaded_file:
                                     usecols='K:L',
                                     header=3)
 
+    df_evolution_filiere = pd.read_excel(uploaded_file,
+                                    sheet_name= sheet_name,
+                                    usecols='N:P',
+                                    header=3)
+
     df_sortants.dropna(inplace=True)
 
         
-    # --- STREAMLIT SELECTION
+    # ---  SELECTION
     st.title('Regroupement des genres par filiere')
     filiere = df['Filiere'].unique().tolist()
+    filiere_evolution = df['Filiere'].unique().tolist()
+    filiere_evolution_sortie = df_evolution_filiere['Filiere3'].unique().tolist()
+
+
     anneUni = df_evolution_sortie['AnneUni'].unique().tolist()
     nbSortie = df_evolution_sortie['NbSortie'].unique().tolist()
 
@@ -65,25 +75,24 @@ if uploaded_file:
                                         filiere,
                                         default=filiere)
 
-    # --- FILTER DATAFRAME BASED ON SELECTION
+
+
+    # --- FILTRER BASES SUR LA SELECTION
     mask = df['Filiere'].isin(filiere_selection)
     number_of_result = df[mask].shape[0]
     #st.markdown(f'*Available Results: {number_of_result}*')
     print(len(filiere_selection))
 
-    # --- GROUP DATAFRAME AFTER SELECTION
-    # Supposons que 'mask' est votre condition de sélection
+    # --- GROUPER LA BASE APRES FILTRE
     df_filtered = df[mask]
 
-    # Regrouper par 'Rating' et compter le nombre de lignes pour chaque 'Rating'
     df_grouped = df_filtered.groupby(by=['Filiere', 'Sexe']).size().reset_index(name='Nombre')
 
     df_combined = df_grouped.pivot(index='Filiere', columns='Sexe', values='Nombre').reset_index()
 
-    print(number_of_result)
 
     if(number_of_result > 0):
-    # --- PLOT BAR CHART
+    # --- AFFICHAGE DE GRAPHE
         bar_chart = px.bar(df_combined,
                    x='Filiere',
                    y=['H', 'F'],
@@ -99,13 +108,13 @@ if uploaded_file:
         st.markdown('Veuillez selectionner une filiere ')
 
 
-    # --- PLOT PIE CHART
+    # --- TAUX DE REUSSITE DES ELEVES ET PAR FILIERE
     pie_chart = px.pie(df_sortants,
                     title='Taux de réussite par filière',
                     values='TauxDeReussite',
-                    names='Filiere.1')
+                    names='Filiere2')
 
-    histogram = px.bar(data_frame=df_sortants, x='Filiere.1', y='TauxDeReussite', title='Taux de réussite des elèves')
+    histogram = px.bar(data_frame=df_sortants, x='Filiere2', y='TauxDeReussite', title='Taux de réussite des elèves')
 
     st.plotly_chart(pie_chart)
     st.plotly_chart(histogram)
@@ -113,7 +122,9 @@ if uploaded_file:
 
     st.title('Evolution des nombres de sortons a l\'ESMIA depuis 2019')
 
-    # Création du graphique
+    
+
+    # Création du courbe
     fig = go.Figure(go.Scatter(
         x= anneUni,
         y= nbSortie
@@ -128,11 +139,43 @@ if uploaded_file:
         )
     )
 
-    # Affichage du graphique dans Streamlit
+  
     st.plotly_chart(fig)
 
 
-      # -- DOWNLOAD SECTION
-    st.subheader('Downloads:')
+
+    parcours_evolution_selection = st.multiselect('Filiere3',
+                                        filiere_evolution_sortie,
+                                        default='IRD')
+
+    
+    maske = df_evolution_filiere['Filiere3'].isin(parcours_evolution_selection)
+
+    df_filterede = df_evolution_filiere[maske]
+
+    anneUni = df_filterede['Annee3'].unique().tolist()
+    nbSortie = df_filterede['TauxDeReussite3'].unique().tolist()
+
+    # Création du courbe
+    fig = go.Figure(go.Scatter(
+        x= anneUni,
+        y= nbSortie
+    ))
+
+    # Mise à jour de la mise en page pour l'axe X
+    fig.update_layout(
+        xaxis=dict(
+            tickmode='linear',
+            tick0=0,
+            dtick=0
+        )
+    )
+
+  
+    st.plotly_chart(fig)
+
+
+      # -- Telechargement
+    st.subheader('Telechargement:')
     generate_excel_download_link(df_grouped)
     generate_html_download_link(pie_chart)
